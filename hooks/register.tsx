@@ -3,7 +3,7 @@ import type { Register, ThemeSetArgs, SessionRateLimit } from 'claude-code'
 
 import type { Limit, Usage } from '../types'
 import { makeColors } from './make-colors.js'
-import { SCENE } from './scene'
+import { SCENE, SCENE_WORKING } from './scene'
 
 // ---------- colors ----------
 
@@ -74,6 +74,7 @@ const LOOK: ThemeSetArgs = {
 
 const usage = atom({ plugin: 'violet-dev', key: 'usage' } as const, { limits: [] } as Usage)
 const isHidden = atom({ plugin: 'violet-dev', key: 'hideLimits' } as const, false)
+const isWorking = atom({ plugin: 'violet-dev', key: 'working' } as const, false)
 
 const toUsage = (limits: SessionRateLimit[], contextPercent?: number): Usage => ({
   limits: limits.map(l => ({ kind: l.kind, percentUsed: l.percentUsed, resetsAt: l.resetsAt })),
@@ -123,6 +124,7 @@ export const register: Register = on => {
     }
 
     await $.command.register({ name: 'limits', description: 'Показать или скрыть строку лимитов' })
+    await update($, isWorking, () => false)
 
     try {
       const u = await $.session.usage()
@@ -140,13 +142,36 @@ export const register: Register = on => {
     return next(e)
   })
 
-  on('ui.render', { component: 'Backdrop' }, ($, e, next) => {
+  // The main loop's turn: while it runs, the backdrop shows a window where code
+  // is being typed. Subagents' turns leave it alone.
+  on('turn.start', async ($, e, next) => {
+    if (e.agentId === undefined) {
+      await update($, isWorking, () => true)
+    }
+
+    return next(e)
+  })
+
+  on('turn.complete', async ($, e, next) => {
+    if (e.agentId === undefined) {
+      await update($, isWorking, () => false)
+    }
+
+    return next(e)
+  })
+
+  on('ui.render', { component: 'Backdrop' }, async ($, e, next) => {
     if (e.surface !== 'desktop' && e.surface !== 'mobile') {
       return next(e)
     }
     const { Svg } = $.ui.resolve(e)
+    const working = await read($, isWorking)
 
-    return <Svg source={SCENE} alt="Спокойный бирюзово-синий градиент с едва заметными фрагментами кода по краям" />
+    return working ? (
+      <Svg source={SCENE_WORKING} alt="Окно редактора в углу, где строка за строкой печатается код: Claude выполняет задачу" />
+    ) : (
+      <Svg source={SCENE} alt="Спокойный бирюзово-синий градиент с едва заметными фрагментами кода по краям" />
+    )
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {

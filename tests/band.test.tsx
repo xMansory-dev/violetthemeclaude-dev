@@ -17,7 +17,7 @@ const BAND = {
 test('the limits line draws on every surface', async ($, on) => {
   on('clock.now', () => ({ value: 0 }))
   on('command.register', () => ({ value: { command: 'limits' } }))
-  on('theme.set', () => ({ value: { isDrawn: true } }))
+  on('theme.set', () => ({ value: { isDrawn: true, requestId: 'test' } }))
   on('session.usage', () => ({
     value: {
       startedAt: 0,
