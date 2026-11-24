@@ -1,0 +1,5 @@
+{
+  "name": "violetthemeclaude-dev",
+  "owner": { "name": "xMansory-dev" },
+  "plugins": [{ "name": "violet-dev", "source": "./" }]
+}
