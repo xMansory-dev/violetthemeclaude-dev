@@ -111,32 +111,49 @@ const PUN = '#a9c3c7'
 
 // Each line: indent (in characters) and its colored tokens.
 const CODE: [indent: number, tokens: Token[]][] = [
-  [0, [['import', KW], [' { plan } ', PUN], ['from', KW], [" './task'", STR]]],
-  [0, [['const', KW], [' steps = ', PUN], ['await', KW], [' plan', FN], ['(goal)', PUN]]],
-  [0, [['for', KW], [' (', PUN], ['const', KW], [' s ', PUN], ['of', KW], [' steps) {', PUN]]],
-  [2, [['const', KW], [' diff = ', PUN], ['await', KW], [' write', FN], ['(s)', PUN]]],
-  [2, [['await', KW], [' test', FN], ['(diff)', PUN]]],
+  [0, [['import', KW], [' { plan, write, test } ', PUN], ['from', KW], [" './claude'", STR]]],
+  [0, [['import', KW], [' { readTask } ', PUN], ['from', KW], [" './task'", STR]]],
+  [0, [['', PUN]]],
+  [0, [['// задача: понять, спланировать, сделать', COM]]],
+  [0, [['export async function', KW], [' solve', FN], ['(goal: string) {', PUN]]],
+  [2, [['const', KW], [' task = ', PUN], ['await', KW], [' readTask', FN], ['(goal)', PUN]]],
+  [2, [['const', KW], [' steps = ', PUN], ['await', KW], [' plan', FN], ['(task)', PUN]]],
+  [0, [['', PUN]]],
+  [2, [['for', KW], [' (', PUN], ['const', KW], [' step ', PUN], ['of', KW], [' steps) {', PUN]]],
+  [4, [['const', KW], [' diff = ', PUN], ['await', KW], [' write', FN], ['(step)', PUN]]],
+  [4, [['const', KW], [' ok = ', PUN], ['await', KW], [' test', FN], ['(diff)', PUN]]],
+  [4, [['if', KW], [' (!ok) ', PUN], ['await', KW], [' write', FN], ['(step, { retry: ', PUN], ['true', STR], [' })', PUN]]],
+  [2, [['}', PUN]]],
+  [0, [['', PUN]]],
+  [2, [['// ✓ все тесты прошли', COM]]],
+  [2, [['return', KW], [' ', PUN], ['"готово"', STR]]],
   [0, [['}', PUN]]],
-  [0, [['// ✓ все тесты прошли', COM]]],
-  [0, [['git', FN], [' commit -m ', PUN], ['"feat: done"', STR]]],
 ]
 
-const WIN_W = 300
-const WIN_H = 250
-const WIN_BG = '#0d1820'
-const LINE_H = 20
-const CODE_TOP = 52
-const CHAR_W = 6.7
-const CYCLE = 18 // seconds for one full typing loop
-const STEP = 1.6 // seconds between the starts of two lines
-const TYPE = 1.2 // seconds a line takes to type
+// The window fills most of the backdrop and is drawn faint, so it reads as a
+// texture behind the conversation rather than a picture to look at.
+const WIN_X = 90
+const WIN_Y = 60
+const WIN_W = 1420
+const WIN_H = 880
+const WIN_BG = '#0c1720'
+const WIN_OPACITY = 0.4
+const BAR_H = 56
+const FONT = 24
+const LINE_H = 40
+const CODE_TOP = BAR_H + 56
+const CODE_X = 110
+const CHAR_W = 14.45
+const CYCLE = 56 // seconds for one full typing loop
+const STEP = 2.8 // seconds between the starts of two lines
+const TYPE = 2.2 // seconds a line takes to type
 
 const pct = (s: number): string => ((s / CYCLE) * 100).toFixed(2)
 
 const codeLines = CODE.map(([indent, tokens], i) => {
   const y = CODE_TOP + i * LINE_H
-  const x = 34 + indent * CHAR_W
-  const len = tokens.reduce((n, [t]) => n + t.length, 0)
+  const x = CODE_X + indent * CHAR_W
+  const len = Math.max(1, tokens.reduce((n, [t]) => n + t.length, 0))
   const spans = tokens.map(([t, c]) => `<tspan fill="${c}">${t}</tspan>`).join('')
   const start = i * STEP
 
@@ -153,44 +170,45 @@ ${pct(start + TYPE)}% { transform: scaleX(0); }
 }
 .c${i} { transform: scaleX(0); transform-box: fill-box; transform-origin: 100% 50%; animation: t${i} ${CYCLE}s linear infinite; }`
 
-  const markup = `<text x="14" y="${y}" font-size="10" fill="#3d5560">${i + 1}</text>
-<text x="${x}" y="${y}" font-size="11">${spans}</text>
-<rect class="c${i}" x="${x - 1}" y="${y - 12}" width="${len * CHAR_W + 8}" height="16" fill="${WIN_BG}"/>`
+  const markup = `<text x="40" y="${y}" font-size="${FONT - 4}" fill="#3d5560" text-anchor="end" dx="30">${i + 1}</text>
+<text x="${x}" y="${y}" font-size="${FONT}">${spans}</text>
+<rect class="c${i}" x="${x - 2}" y="${y - FONT}" width="${len * CHAR_W + 16}" height="${FONT + 10}" fill="${WIN_BG}"/>`
 
   return { keys, markup }
 })
 
-const promptY = CODE_TOP + CODE.length * LINE_H + 10
+const promptY = CODE_TOP + CODE.length * LINE_H + 24
+const PROMPT = 'claude работает'
 
-const WINDOW = `<svg x="0" y="0" width="1600" height="1000" viewBox="0 0 1600 1000" preserveAspectRatio="xMaxYMin meet">
-<g transform="translate(${1600 - WIN_W - 36} 44)">
+const WINDOW = `<g transform="translate(${WIN_X} ${WIN_Y})" opacity="${WIN_OPACITY}">
 <g class="pop">
-<rect width="${WIN_W}" height="${WIN_H}" rx="14" fill="${WIN_BG}" stroke="#7fb3b8" stroke-opacity="0.22"/>
-<rect width="${WIN_W}" height="30" rx="14" fill="#13232d"/>
-<rect y="16" width="${WIN_W}" height="14" fill="#13232d"/>
-<circle cx="18" cy="15" r="4.5" fill="#e5484d" fill-opacity="0.75"/>
-<circle cx="34" cy="15" r="4.5" fill="#d97706" fill-opacity="0.75"/>
-<circle cx="50" cy="15" r="4.5" fill="#5fd39f" fill-opacity="0.75"/>
-<text x="${WIN_W / 2}" y="19" font-size="10.5" fill="#97adb2" text-anchor="middle">task.ts — Claude пишет код</text>
-<circle class="live" cx="${WIN_W - 18}" cy="15" r="3.5" fill="#6ee7ef"/>
+<rect width="${WIN_W}" height="${WIN_H}" rx="28" fill="${WIN_BG}" stroke="#7fb3b8" stroke-opacity="0.35" stroke-width="2"/>
+<rect width="${WIN_W}" height="${BAR_H}" rx="28" fill="#13232d"/>
+<rect y="${BAR_H - 28}" width="${WIN_W}" height="28" fill="#13232d"/>
+<circle cx="36" cy="${BAR_H / 2}" r="9" fill="#e5484d" fill-opacity="0.8"/>
+<circle cx="66" cy="${BAR_H / 2}" r="9" fill="#d97706" fill-opacity="0.8"/>
+<circle cx="96" cy="${BAR_H / 2}" r="9" fill="#5fd39f" fill-opacity="0.8"/>
+<text x="${WIN_W / 2}" y="${BAR_H / 2 + 7}" font-size="20" fill="#97adb2" text-anchor="middle">solve.ts — Claude пишет код</text>
+<circle class="live" cx="${WIN_W - 36}" cy="${BAR_H / 2}" r="7" fill="#6ee7ef"/>
+<rect x="0" y="${BAR_H}" width="${CODE_X - 30}" height="${WIN_H - BAR_H - 28}" fill="#0f1c26"/>
 ${codeLines.map(l => l.markup).join('\n')}
-<text x="14" y="${promptY}" font-size="11" fill="#5fd39f">$</text>
-<text x="28" y="${promptY}" font-size="11" fill="#c6d2d4">claude работает</text>
-<rect class="cursor" x="${28 + 15 * CHAR_W + 4}" y="${promptY - 11}" width="7" height="14" fill="#6ee7ef"/>
-<rect class="scan" x="1" y="31" width="${WIN_W - 2}" height="2" fill="#6ee7ef" fill-opacity="0.18"/>
+<line x1="0" y1="${promptY - 44}" x2="${WIN_W}" y2="${promptY - 44}" stroke="#7fb3b8" stroke-opacity="0.18" stroke-width="2"/>
+<text x="${CODE_X}" y="${promptY}" font-size="${FONT}" fill="#5fd39f">$</text>
+<text x="${CODE_X + 2 * CHAR_W}" y="${promptY}" font-size="${FONT}" fill="#c6d2d4">${PROMPT}</text>
+<rect class="cursor" x="${CODE_X + (3 + PROMPT.length) * CHAR_W}" y="${promptY - FONT + 2}" width="13" height="${FONT + 4}" fill="#6ee7ef"/>
+<rect class="scan" x="2" y="${BAR_H}" width="${WIN_W - 4}" height="3" fill="#6ee7ef" fill-opacity="0.12"/>
 </g>
-</g>
-</svg>`
+</g>`
 
 const WINDOW_STYLE = `${codeLines.map(l => l.keys).join('\n')}
-.cursor { animation: blink 1.1s steps(1, end) infinite; }
+.cursor { animation: blink 1.2s steps(1, end) infinite; }
 @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0; } 100% { opacity: 1; } }
-.live { animation: live 2.4s ease-in-out infinite; }
+.live { animation: live 3s ease-in-out infinite; }
 @keyframes live { 0% { opacity: 1; } 50% { opacity: 0.35; } 100% { opacity: 1; } }
-.scan { animation: scan 6s linear infinite; }
-@keyframes scan { from { transform: translateY(0px); } to { transform: translateY(${WIN_H - 36}px); } }
-.pop { animation: pop 0.6s ease-out; }
-@keyframes pop { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0px); } }`
+.scan { animation: scan 14s linear infinite; }
+@keyframes scan { from { transform: translateY(0px); } to { transform: translateY(${WIN_H - BAR_H - 8}px); } }
+.pop { animation: pop 1.2s ease-out; }
+@keyframes pop { from { opacity: 0; } to { opacity: 1; } }`
 
 const scene = (working: boolean): string => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
 <style>
@@ -257,7 +275,7 @@ ${working ? WINDOW_STYLE : ''}
 <svg x="0" y="0" width="1600" height="1000" viewBox="0 0 1600 1000" preserveAspectRatio="xMinYMid meet">
 <g mask="url(#maskL)">
 <g fill="#7fb3b8" fill-opacity="0.09">${DOTS}</g>
-<g opacity="${working ? 0.5 : 0.34}">${glyphs(LEFT)}</g>
+<g opacity="${working ? 0.12 : 0.34}">${glyphs(LEFT)}</g>
 </g>
 </svg>
 <!-- right edge -->
@@ -265,7 +283,7 @@ ${working ? WINDOW_STYLE : ''}
 <g transform="translate(1300 0)">
 <g mask="url(#maskR)">
 <g fill="#7fb3b8" fill-opacity="0.09">${DOTS}</g>
-<g opacity="0.34">${glyphs(RIGHT)}</g>
+<g opacity="${working ? 0.12 : 0.34}">${glyphs(RIGHT)}</g>
 </g>
 </g>
 </svg>
